@@ -15,7 +15,7 @@ RENDER_URL         = os.environ.get("RENDER_URL", "").rstrip("/")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 AIPIPE_URL   = "https://aipipe.org/openrouter/v1/chat/completions"
-MODEL        = "google/gemini-2.0-flash-lite-001"
+MODEL        = "openai/gpt-4o-mini"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -124,9 +124,18 @@ def webhook():
     try:
         raw_reply = ask_llm(messages)
         log.info(f"[{chat_id}] LLM → {raw_reply[:200]}")
+    except requests.exceptions.HTTPError as e:
+        body = ""
+        try:
+            body = e.response.text[:300]
+        except Exception:
+            pass
+        log.error(f"LLM HTTP error: {e} | response body: {body}")
+        send_message(chat_id, json.dumps({"answer": f"LLM error: {e} | {body}", "log_url": LOG_URL}))
+        return "ok", 200
     except Exception as e:
         log.error(f"LLM error: {e}")
-        send_message(chat_id, json.dumps({"answer": "LLM error", "log_url": LOG_URL}))
+        send_message(chat_id, json.dumps({"answer": f"LLM error: {e}", "log_url": LOG_URL}))
         return "ok", 200
 
     history.append({"role": "assistant", "content": raw_reply})
