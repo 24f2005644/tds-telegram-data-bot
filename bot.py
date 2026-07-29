@@ -14,8 +14,8 @@ LOG_URL            = os.environ["LOG_URL"]
 RENDER_URL         = os.environ.get("RENDER_URL", "").rstrip("/")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
-AIPIPE_URL   = "https://aipipe.org/openrouter/v1/chat/completions"
-MODEL        = "openai/gpt-4.1-nano"
+# Direct Gemini endpoint via AIPipe (bypasses OpenRouter credit limits)
+GEMINI_URL   = "https://aipipe.org/geminiv1beta/models/gemini-1.5-flash:generateContent"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -58,18 +58,35 @@ def append_log(entry: dict):
 
 
 def ask_llm(messages: list[dict]) -> str:
-    """Call the AIPipe LLM and return the reply text."""
+    """Call AIPipe's Gemini endpoint and return the reply text.
+
+    Converts OpenAI-style messages (system/user/assistant) into Gemini's
+    format (systemInstruction + contents with role 'model'/'user').
+    """
+    system_parts: list[dict] = []
+    contents: list[dict] = []
+    for m in messages:
+        if m["role"] == "system":
+            system_parts.append({"text": m["content"]})
+        else:
+            role = "model" if m["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": m["content"]}]})
+
+    body: dict = {"contents": contents}
+    if system_parts:
+        body["systemInstruction"] = {"parts": system_parts}
+
     resp = requests.post(
-        AIPIPE_URL,
+        GEMINI_URL,
         headers={
             "Authorization": f"Bearer {AIPIPE_TOKEN}",
             "Content-Type": "application/json",
         },
-        json={"model": MODEL, "messages": messages, "temperature": 0},
+        json=body,
         timeout=90,
     )
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"].strip()
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
 
 
 def extract_json(text: str) -> str:
