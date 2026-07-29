@@ -15,7 +15,7 @@ RENDER_URL         = os.environ.get("RENDER_URL", "").rstrip("/")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 AIPIPE_URL   = "https://aipipe.org/openrouter/v1/chat/completions"
-MODEL        = "openai/gpt-4o-mini"
+MODEL        = "google/gemini-2.0-flash-exp:free"
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
